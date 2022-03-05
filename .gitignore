@@ -1,5 +1,6 @@
 settings_prod.py
 settings_dev.py
+settings_gh.py
 start_bot.py
 runtime.txt
 Procfile
