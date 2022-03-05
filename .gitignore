@@ -1,7 +1,8 @@
 settings_prod.py
 settings_dev.py
 start_bot.py
-
+runtime.txt
+Procfile
 
 # Created by https://www.toptal.com/developers/gitignore/api/django
 # Edit at https://www.toptal.com/developers/gitignore?templates=django
