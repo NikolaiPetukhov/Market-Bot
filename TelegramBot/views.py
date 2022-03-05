@@ -20,17 +20,21 @@ logger = logging.getLogger("telegram.bot")
 admin_bot_commands = {
     "unknown": AdminBotCommands.unknown,
     "new_shop": AdminBotCommands.new_shop,
-    "cancel": AdminBotCommands.new_shop_abort
+    "cancel": AdminBotCommands.new_shop_abort,
+    "my_shops": AdminBotCommands.my_shops
 }
 
 admin_bot_callback_commands = {
     "unknown": AdminBotCallbackCommands.unknown,
     "new_shop_abort": AdminBotCallbackCommands.new_shop_abort,
-    "new_shop_confirm": AdminBotCallbackCommands.new_shop_confirm
+    "new_shop_confirm": AdminBotCallbackCommands.new_shop_confirm,
+    "shop_menu": AdminBotCallbackCommands.shop_menu,
+    "delete_shop": AdminBotCallbackCommands.delete_shop
 }
 
 shop_bot_commands = {
-    "unknown": ShopBotCommands.unknown
+    "unknown": ShopBotCommands.unknown,
+    "start": ShopBotCommands.start
 }
 
 shop_bot_callback_commands = {

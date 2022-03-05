@@ -9,7 +9,7 @@ class BotUser(models.Model):
     last_name = models.CharField(verbose_name="Surname", max_length=1024, blank=True, null=True)
     chat_id = models.IntegerField(verbose_name="Id of a chat", unique=True)
     is_admin = models.BooleanField(verbose_name="Admin", default=False)
-
+    max_shops = models.IntegerField(default=4)
 
     def __str__(self):
         return f"{self.username}"
