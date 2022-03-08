@@ -4,6 +4,7 @@ settings_gh.py
 start_bot.py
 runtime.txt
 Procfile
+Core/settings.py
 
 # Created by https://www.toptal.com/developers/gitignore/api/django
 # Edit at https://www.toptal.com/developers/gitignore?templates=django

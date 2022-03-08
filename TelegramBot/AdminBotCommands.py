@@ -201,6 +201,3 @@ def my_shops(*args, **kwargs):
         }
     try: telegram_bot.sendMessage(chat_id=chat_id, text=msg["text"], reply_markup=msg["reply_markup"])
     except Exception as e: print(e)
-
-
-    

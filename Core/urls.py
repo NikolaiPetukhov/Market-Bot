@@ -14,7 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from django.conf import settings 
 from django.conf.urls.static import static 
 from TelegramBot.views import CommandReceiveView as CommandView
@@ -22,6 +22,7 @@ from TelegramBot.views import CommandReceiveView as CommandView
 
 urlpatterns = [
     path('admin', admin.site.urls),
+    path('api/', include('TelegramBot.urls')),
     re_path(r'^(?P<bot_token>.+)$', CommandView.as_view(), name='admin_bot_command'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

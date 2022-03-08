@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unicodedata import category
 from django.db import models
+from rest_framework_api_key.models import AbstractAPIKey
 
 
 class BotUser(models.Model):
@@ -39,6 +40,20 @@ class Shop(models.Model):
     owner = models.ForeignKey(BotUser, related_name='owner', null=True, on_delete=models.SET_NULL)
     clients = models.ManyToManyField(BotUser, related_name='clients')
 
+    @classmethod
+    def create(cls, name, owner):
+        shop = cls(name=name, owner=owner)
+        return shop
+
+    def revoke_api_key(self):
+        try:
+            api_key = ShopAPIKey.objects.get(shop=self)
+            api_key.delete()
+        except:
+            pass
+        api_key, key = ShopAPIKey.objects.create_key(shop=self, name=f'Shop({self.pk})_apikey')
+        return api_key, key
+
 class Bot(models.Model):
     token = models.CharField(max_length=69, unique=True)
     username = models.CharField(max_length=69, null=True, blank=True)
@@ -56,6 +71,14 @@ class Product(models.Model):
     description = models.TextField(max_length=1024, null=True, blank=True)
     tags = models.CharField(max_length=1024, null=True, blank=True)
     category = models.ForeignKey(Category, null=True, on_delete=models.SET_NULL)
+
+
+class ShopAPIKey(AbstractAPIKey):
+    shop = models.ForeignKey(
+        Shop,
+        on_delete=models.CASCADE,
+        related_name="api_key",
+    )
 
 
 # To be changed in future 

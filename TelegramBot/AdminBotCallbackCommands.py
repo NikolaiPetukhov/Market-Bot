@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from .models import TemporaryDataStorage, Bot, Shop
+from .models import ShopAPIKey, TemporaryDataStorage, Bot, Shop
 import json, telegram
 from django.conf import settings
 
@@ -79,7 +79,7 @@ def new_shop_confirm(**kwargs):
             try: telegram_bot.sendMessage(text="Unable to set webhook. Please try again", chat_id=chat_id)
             except Exception as e: print(e)
             return ans
-        shop_obj = Shop(name=name, owner=bot_user)
+        shop_obj = Shop.create(name=name, owner=bot_user)
         shop_obj.save()
         bot_obj = Bot(token=token, shop=shop_obj)
         bot_obj.username = info['username']
@@ -130,6 +130,12 @@ def shop_menu(**kwargs):
                     "bot_id": bot.id
                 }
             }))],
+            [InlineKeyboardButton(text="create/revoke API-Key", callback_data=json.dumps({
+                "comm": "new_api_key",
+                "args": {
+                    "shop_id": shop.id
+                }
+            }))],
             [InlineKeyboardButton(text="Send message to Clients", callback_data=json.dumps({
                 "comm": "shout",
                 "args": {
@@ -167,6 +173,71 @@ def delete_shop(**kwargs):
         return ans
     shop.delete()
     try: telegram_bot.edit_message_text("Shop Deleted!", chat_id, message_id)
+    except Exception as e: print(e)
+    try: telegram_bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id)
+    except Exception as e: print(e)
+    return ans
+
+
+def new_api_key(**kwargs):
+    ans = {
+        "text": "loading"
+    }
+    bot_user = kwargs.get('bot_user')
+    shop_id = kwargs.get('shop_id')
+    telegram_bot = kwargs.get('telegram_bot')
+    chat_id = kwargs.get('chat_id')
+    reply_keyboard = [
+        [InlineKeyboardButton(text='Confirm', callback_data=json.dumps({
+            "comm": "new_api_key_confirm",
+            "args": {
+                "shop_id": shop_id
+            }
+        })),
+        InlineKeyboardButton(text='Cancel', callback_data=json.dumps({
+            "comm": "new_api_key_abort",
+            "args": {}
+        }))]
+    ]
+    msg = {
+        "text": "Are you shure to make new API-Key?",
+        "reply_markup": InlineKeyboardMarkup(reply_keyboard)
+    }
+    try: telegram_bot.sendMessage(chat_id=chat_id, text=msg["text"], reply_markup=msg["reply_markup"])
+    except Exception as e: print(e)
+    return ans
+
+def new_api_key_confirm(**kwargs):
+    ans = {
+        "text": "creating.."
+    }
+    message_id = kwargs.get('message_id')
+    chat_id = kwargs.get('chat_id')
+    telegram_bot = kwargs.get('telegram_bot')
+    shop_id = kwargs.get('shop_id')
+    bot_user = kwargs.get('bot_user')
+    try: shop = Shop.objects.get(pk=shop_id)
+    except:
+        telegram_bot.sendMessage(text="Shop not found", chat_id=chat_id)
+        return ans
+    if shop.owner != bot_user:
+        telegram_bot.sendMessage(text="Access Denied", chat_id=chat_id)
+        return ans
+    _, key = shop.revoke_api_key()
+    try: telegram_bot.edit_message_text(f"API-Key: {key}", chat_id, message_id)
+    except Exception as e: print(e)
+    try: telegram_bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id)
+    except Exception as e: print(e)
+    return ans
+
+def new_api_key_abort(**kwargs):
+    ans = {
+        "text": "aborting.."
+    }
+    message_id = kwargs.get('message_id')
+    chat_id = kwargs.get('chat_id')
+    telegram_bot = kwargs.get('telegram_bot')
+    try: telegram_bot.edit_message_text("Aborted", chat_id, message_id)
     except Exception as e: print(e)
     try: telegram_bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id)
     except Exception as e: print(e)

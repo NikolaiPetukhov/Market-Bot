@@ -1,5 +1,4 @@
 import logging, json, importlib
-from tempfile import TemporaryFile
 
 from django.views.generic import View
 from django.http.response import JsonResponse, HttpResponseForbidden
@@ -7,11 +6,19 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.decorators import api_view
+
 import telegram
 from telegram import Message, CallbackQuery
 
-from .models import BotUser, Bot, TemporaryDataStorage
+from .models import BotUser, Bot, TemporaryDataStorage, Shop, Product, ShopAPIKey
+from .serializers import ProductSerializer
 from . import AdminBotCommands, AdminBotCallbackCommands, ShopBotCommands, ShopBotCallbackCommands
+from .permissions import HasShopAPIKey
+from TelegramBot import serializers
 
 admin_bot_token = settings.TELEGRAM_BOT_TOKEN
 telegram_bot = telegram.Bot(admin_bot_token)
@@ -29,7 +36,10 @@ admin_bot_callback_commands = {
     "new_shop_abort": AdminBotCallbackCommands.new_shop_abort,
     "new_shop_confirm": AdminBotCallbackCommands.new_shop_confirm,
     "shop_menu": AdminBotCallbackCommands.shop_menu,
-    "delete_shop": AdminBotCallbackCommands.delete_shop
+    "delete_shop": AdminBotCallbackCommands.delete_shop,
+    "new_api_key": AdminBotCallbackCommands.new_api_key,
+    "new_api_key_confirm": AdminBotCallbackCommands.new_api_key_confirm,
+    "new_api_key_abort": AdminBotCallbackCommands.new_api_key_abort
 }
 
 shop_bot_commands = {
@@ -187,3 +197,70 @@ class CommandReceiveView(View):
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
         return super(CommandReceiveView, self).dispatch(request, *args, **kwargs)
+
+
+@api_view(['GET'])
+def apiInfoView(request):
+    api_urls = {
+        'Get list of products': 'GET api/products'
+    }
+    return Response(data=api_urls)
+
+class ProductsApiView(APIView):
+    permission_classes = [HasShopAPIKey]
+
+    def get(self, request):
+        key = request.META["HTTP_AUTHORIZATION"].split()[1]
+        api_key = ShopAPIKey.objects.get_from_key(key)
+        try: shop = Shop.objects.get(api_key=api_key)
+        except: 
+            # shop not found by apikey  
+            return Response(data={"error_message":"Shop not found"}, status=status.HTTP_400_BAD_REQUEST) 
+        products = Product.objects.filter(shop=shop)
+        serializer = ProductSerializer(products, many=True)
+        return Response(data=serializer.data)
+
+    def post(self, request):
+        key = request.META["HTTP_AUTHORIZATION"].split()[1]
+        api_key = ShopAPIKey.objects.get_from_key(key)
+        try: shop = Shop.objects.get(api_key=api_key)
+        except: 
+            # shop not found by apikey
+            return Response(data={"error_message":"Shop not found"}, status=status.HTTP_400_BAD_REQUEST) 
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid(): serializer.save(shop=shop)
+        return Response(data=serializer.data)
+
+class ProductApiView(APIView):
+    permission_classes = [HasShopAPIKey]
+
+    def get(self, request, id):
+        key = request.META["HTTP_AUTHORIZATION"].split()[1]
+        api_key = ShopAPIKey.objects.get_from_key(key)
+        try: shop = Shop.objects.get(api_key=api_key)
+        except: 
+            # shop not found by apikey  
+            return Response(data={"error_message":"Shop not found"}, status=status.HTTP_400_BAD_REQUEST)
+        try: product = Product.objects.get(pk=id)
+        except:
+            # product not found by id
+            return Response(data={"error_message":"Product not found"}, status=status.HTTP_400_BAD_REQUEST) 
+        serializer = ProductSerializer(product, many=False)
+        return Response(data=serializer.data)
+
+    def put(self, request, id):
+        key = request.META["HTTP_AUTHORIZATION"].split()[1]
+        api_key = ShopAPIKey.objects.get_from_key(key)
+        try: shop = Shop.objects.get(api_key=api_key)
+        except: 
+            # shop not found by apikey  
+            return Response(data={"error_message":"Shop not found"}, status=status.HTTP_400_BAD_REQUEST)
+        try: product = Product.objects.get(pk=id)
+        except:
+            # product not found by id
+            return Response(data={"error_message":"Product not found"}, status=status.HTTP_400_BAD_REQUEST)
+        if product.shop != shop:
+            return Response(data={"error_message":"Product not found"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ProductSerializer(instance=product, data=request.data)
+        if serializer.is_valid(): serializer.save()
+        return Response(serializer.data)
