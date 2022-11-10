@@ -27,7 +27,7 @@ from .permissions import HasShopAPIKey
 
 ADMIN_BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 telegram_bot = telegram.Bot(ADMIN_BOT_TOKEN)
-logger = logging.getLogger("telegram.bot")
+logger = logging.getLogger(__name__)
 
 admin_bot_commands = {
     "unknown": AdminBotCommands.unknown,
@@ -97,19 +97,63 @@ def get_waiting_input_from_user(bot_user):
     try:
         module = importlib.import_module(module_name, "TelegramBot")
     except Exception as e:
-        print("module not found")
-        print(e)
+        logger.error('Module not found. ' + str(e))
         return False, None
     try:
         func = getattr(module, function_name)
     except Exception as e:
-        print("function not found")
-        print(e)
+        logger.error('Function not found. ' + str(e))
         return False, None
     return True, func
 
 
 class CommandReceiveView(View):
+
+    def __handle_message(self, message, telegram_bot, commands):
+        bot_user, _ = BotUser.get_or_create_from_chat(message.chat)
+        kwargs = {
+            "telegram_bot": telegram_bot,
+            "bot_user": bot_user,
+            "chat_id": message.chat_id,
+            "message_id": message.message_id
+        }
+        shop = Shop.get_shop_by_token(telegram_bot.token)
+        if shop:
+            shop.add_client(bot_user)
+            kwargs["shop"] = shop
+
+        message_text = message.text
+        logger.info(f"Private message. Text: {message_text}, Chat_id: {message.chat_id}")
+
+        waiting_input, func = get_waiting_input_from_user(bot_user)
+        if waiting_input:
+            kwargs["user_input"] = message_text
+            func(**kwargs)
+            return
+        func, args = get_command(commands, message_text)
+        func(*args, **kwargs)
+    
+    def __handle_callback(self, callback_query, telegram_bot, callback_commands):
+        bot_user = BotUser.get_by_chat_id(callback_query.from_user.id)
+        callback_data = json.loads(callback_query.data)
+        func, kwargs = get_callback_command(callback_commands, callback_data)
+        kwargs["telegram_bot"] = telegram_bot
+        kwargs["bot_user"] = bot_user
+        kwargs["chat_id"] = callback_query.message.chat_id
+        kwargs["message_id"] = callback_query.message.message_id
+        shop = Shop.get_shop_by_token(telegram_bot.token)
+        if shop:
+            kwargs["shop"] = shop
+        
+        logger.info(f"Callback Command. Data: {callback_data}, Chat_id: {callback_query.from_user.id}")
+        
+        answer = func(**kwargs)
+        answer["callback_query_id"] = callback_query.id
+        try:
+            telegram_bot.answer_callback_query(**answer)
+        except:
+            pass
+
     def post(self, request, bot_token):
         #
         if bot_token == ADMIN_BOT_TOKEN:
@@ -123,76 +167,25 @@ class CommandReceiveView(View):
                 commands = shop_bot_commands
                 callback_commands = shop_bot_callback_commands
             else:
-                print("Invalid token")
+                logger.info(f"Invalid token. Token: {bot_token}")
                 HttpResponseForbidden("Invalid token")
 
         raw = request.body.decode("utf-8")
-        logger.info(raw)
         data = json.loads(raw)
 
-        shop = Shop.get_shop_by_token(bot_token)
+        callback_query_data = data.get("callback_query", False)
+        if callback_query_data:
+            callback_query = CallbackQuery.de_json(callback_query_data, telegram_bot)
+            self.__handle_callback(callback_query, telegram_bot, callback_commands)
+            return JsonResponse({}, status=200)
 
-        is_callback_query = data.get("callback_query", False)
-        is_message = data.get("message", False)
-        is_private_message = False
-        if is_message:
-            message = Message.de_json(data["message"], telegram_bot)
+        message_data = data.get("message", False)
+        if message_data:
+            message = Message.de_json(message_data, telegram_bot)
             chat = message.chat
             if chat.type == "private":
-                is_private_message = True
-
-        if is_callback_query:
-            callback_query = CallbackQuery.de_json(data["callback_query"], telegram_bot)
-            bot_user = BotUser.get_by_chat_id(callback_query.from_user.id)
-            callback_data = json.loads(callback_query.data)
-            print(callback_data)
-
-            func, kwargs = get_callback_command(callback_commands, callback_data)
-            kwargs["telegram_bot"] = telegram_bot
-            kwargs["bot_user"] = bot_user
-            kwargs["chat_id"] = callback_query.message.chat_id
-            kwargs["message_id"] = callback_query.message.message_id
-            if shop:
-                kwargs["shop"] = shop
-
-            answer = func(**kwargs)
-            answer["callback_query_id"] = callback_query.id
-            try:
-                telegram_bot.answer_callback_query(**answer)
-            except:
-                pass
-
-        elif is_private_message:
-            bot_user, created = BotUser.get_or_create_from_chat(chat)
-            if shop:
-                shop.add_client(bot_user)
-
-            message_text = message.text
-            print(message_text)
-
-            waiting_input, func = get_waiting_input_from_user(bot_user)
-            if waiting_input:
-                kwargs = {}
-                kwargs["telegram_bot"] = telegram_bot
-                kwargs["bot_user"] = bot_user
-                kwargs["chat_id"] = message.chat_id
-                kwargs["message_id"] = message.message_id
-                kwargs["user_input"] = message_text
-                if shop:
-                    kwargs["shop"] = shop
-                func(**kwargs)
+                self.__handle_message(message, telegram_bot, commands)
                 return JsonResponse({}, status=200)
-
-            func, args = get_command(commands, message_text)
-            kwargs = {}
-            kwargs["telegram_bot"] = telegram_bot
-            kwargs["bot_user"] = bot_user
-            kwargs["chat_id"] = message.chat_id
-            kwargs["message_id"] = message.message_id
-            if shop:
-                kwargs["shop"] = shop
-
-            func(*args, **kwargs)
 
         return JsonResponse({}, status=200)
 
