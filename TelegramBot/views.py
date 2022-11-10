@@ -48,12 +48,14 @@ admin_bot_callback_commands = {
     "change_bot_token": AdminBotCallbackCommands.change_bot_token,
     "delete_shop_confirm": AdminBotCallbackCommands.delete_shop_confirm,
     "delete_shop_abort": AdminBotCallbackCommands.delete_shop_abort,
+    "change_name": AdminBotCallbackCommands.change_shop_name,
 }
 
 shop_bot_commands = {
     "unknown": ShopBotCommands.unknown,
     "start": ShopBotCommands.start,
     "🏠Main Menu": ShopBotCommands.main_menu,
+    "menu": ShopBotCommands.main_menu,
 }
 
 shop_bot_callback_commands = {"unknown": ShopBotCallbackCommands.unknown}
@@ -252,7 +254,7 @@ class ProductApiView(APIView):
         key = request.META["HTTP_AUTHORIZATION"].split()[1]
         api_key = ShopAPIKey.objects.get_from_key(key)
         try:
-            shop = Shop.objects.get(api_key=api_key)
+            _ = Shop.objects.get(api_key=api_key)
         except:
             # shop not found by apikey
             return Response(

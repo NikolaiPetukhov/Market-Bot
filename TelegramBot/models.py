@@ -105,7 +105,7 @@ class Bot(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=69)
-    parent = models.ForeignKey("Category", null=True, on_delete=models.SET_NULL)
+    parent = models.ForeignKey("Category", null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Product(models.Model):
@@ -114,7 +114,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=30, decimal_places=8, default=Decimal("0.0"))
     description = models.TextField(max_length=1024, null=True, blank=True)
     tags = models.CharField(max_length=1024, null=True, blank=True)
-    category = models.ForeignKey(Category, null=True, on_delete=models.SET_NULL)
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class ShopAPIKey(AbstractAPIKey):

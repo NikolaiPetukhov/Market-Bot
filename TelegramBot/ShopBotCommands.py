@@ -48,7 +48,7 @@ def main_menu(*args, **kwargs):
             ]
         )
     msg = {
-        "text": shop.welcome_message,
+        "text": shop.welcome_message if shop.welcome_message else "Hello",
         "reply_markup": InlineKeyboardMarkup(reply_keyboard),
     }
     telegram_bot.sendMessage(chat_id, **msg)
